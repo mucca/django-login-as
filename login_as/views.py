@@ -12,8 +12,13 @@ except ImportError:
     from django.contrib.auth.models import User
     get_user_model = lambda: User
 
+from login_as import conf
 
 is_superuser = lambda user: user.is_superuser
+
+
+def _is_user_active(username):
+    return get_user_model().objects.filter(username=username, is_active=True).exists()
 
 
 @user_passes_test(is_superuser)
@@ -21,10 +26,13 @@ def login(request, username):
     authenticated = authenticate(from_user=request.user, to_username=username)
     if not authenticated:
         raise Http404
+
+    if conf.LOGIN_ACTIVE_USERS_ONLY and not _is_user_active(username):
+        raise Http404
     auth_login(request, authenticated)
     message = _("You are now logged in as %(username)s") % {'username': username}
     messages.success(request, message)
-    return HttpResponseRedirect('/')
+    return HttpResponseRedirect(conf.REDIRECT_AFTER_LOGIN)
 
 
 class UserChooseView(ListView):
